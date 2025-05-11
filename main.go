@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"os"
 	"strings"
 
@@ -39,11 +38,14 @@ func main() {
 	r.GET("/", authRedirect)
 	r.GET("/callback", handleCallback)
 	r.GET("/artists", getArtists)
+	r.POST("/play", play)
+	r.POST("/pause", pause)
+	r.GET("/top", topTracks)
 	r.Run() // defaults to ":8080"
 }
 
 func authRedirect(c *gin.Context) {
-	scope := "user-follow-read"
+	scope := "user-follow-read user-modify-playback-state user-read-playback-state user-read-currently-playing user-top-read"
 	authURL := fmt.Sprintf("https://accounts.spotify.com/authorize?response_type=code&client_id=%s&scope=%s&redirect_uri=%s",
 		url.QueryEscape(clientID), url.QueryEscape(scope), url.QueryEscape(redirectURI))
 	c.Redirect(http.StatusTemporaryRedirect, authURL)
@@ -75,7 +77,7 @@ func handleCallback(c *gin.Context) {
 	json.Unmarshal(body, &tokenResp)
 	accessToken = tokenResp.AccessToken
 
-	c.String(200, "Access token saved. Now visit /followed to fetch followed artists.")
+	c.String(200, "Visit /artists, /play, /pause or /top.")
 }
 
 func basicAuth() string {
@@ -83,8 +85,31 @@ func basicAuth() string {
 }
 
 func getArtists(c *gin.Context) {
-	log.Println("Access Token: ", accessToken)
-	req, err := http.NewRequest("GET", "https://api.spotify.com/v1/me/following?type=artist", nil)
+	url := "https://api.spotify.com/v1/me/following?type=artist"
+	method := "GET"
+	spotifyAPI(c, method, url)
+}
+
+func play(c *gin.Context) {
+	url := "https://api.spotify.com/v1/me/player/play"
+	method := "PUT"
+	spotifyAPI(c, method, url)
+}
+
+func pause(c *gin.Context) {
+	url := "https://api.spotify.com/v1/me/player/pause"
+	method := "PUT"
+	spotifyAPI(c, method, url)
+}
+
+func topTracks(c *gin.Context) {
+	url := "https://api.spotify.com/v1/me/top/tracks"
+	method := "GET"
+	spotifyAPI(c, method, url)
+}
+
+func spotifyAPI(c *gin.Context, method, url string) {
+	req, err := http.NewRequest(method, url, nil)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Request creation failed"})
 		return
