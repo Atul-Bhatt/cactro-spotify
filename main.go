@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -38,9 +39,10 @@ func main() {
 	r.GET("/", authRedirect)
 	r.GET("/callback", handleCallback)
 	r.GET("/artists", getArtists)
-	r.POST("/play", play)
-	r.POST("/pause", pause)
+	r.GET("/play", play)
+	r.GET("/pause", pause)
 	r.GET("/top", topTracks)
+	r.GET("/play-track/:track_id", playTrack)
 	r.Run() // defaults to ":8080"
 }
 
@@ -77,7 +79,7 @@ func handleCallback(c *gin.Context) {
 	json.Unmarshal(body, &tokenResp)
 	accessToken = tokenResp.AccessToken
 
-	c.String(200, "Visit /artists, /play, /pause or /top.")
+	c.String(200, "Visit /artists, /play, /pause or /top, /play-track/:track_id (ex: /play-track/spotify:artist:2J7iEpAkPqe41okCsm4Ja5)")
 }
 
 func basicAuth() string {
@@ -87,29 +89,44 @@ func basicAuth() string {
 func getArtists(c *gin.Context) {
 	url := "https://api.spotify.com/v1/me/following?type=artist"
 	method := "GET"
-	spotifyAPI(c, method, url)
+	spotifyAPI(c, method, url, nil)
 }
 
 func play(c *gin.Context) {
 	url := "https://api.spotify.com/v1/me/player/play"
 	method := "PUT"
-	spotifyAPI(c, method, url)
+	spotifyAPI(c, method, url, nil)
 }
 
 func pause(c *gin.Context) {
 	url := "https://api.spotify.com/v1/me/player/pause"
 	method := "PUT"
-	spotifyAPI(c, method, url)
+	spotifyAPI(c, method, url, nil)
 }
 
 func topTracks(c *gin.Context) {
-	url := "https://api.spotify.com/v1/me/top/tracks"
+	url := "https://api.spotify.com/v1/me/top/tracks?limit=10"
 	method := "GET"
-	spotifyAPI(c, method, url)
+	spotifyAPI(c, method, url, nil)
 }
 
-func spotifyAPI(c *gin.Context, method, url string) {
-	req, err := http.NewRequest(method, url, nil)
+func playTrack(c *gin.Context) {
+	trackID := c.Param("track_id")
+	url := "https://api.spotify.com/v1/me/player/play"
+	method := "PUT"
+
+	data := map[string]interface{}{
+		"uris": []string{"spotify:track:" + trackID},
+	}
+	spotifyAPI(c, method, url, data)
+}
+
+func spotifyAPI(c *gin.Context, method, url string, data map[string]interface{}) {
+	var jsonData []byte
+	if data != nil {
+		jsonData, _ = json.Marshal(data)
+	}
+	req, err := http.NewRequest(method, url, bytes.NewBuffer(jsonData))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Request creation failed"})
 		return
