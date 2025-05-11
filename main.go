@@ -30,14 +30,10 @@ var (
 )
 
 func main() {
-	err := godotenv.Load()
+	_ = godotenv.Load()
 	clientID = os.Getenv("CLIENT_ID")
 	clientSecret = os.Getenv("CLIENT_SECRET")
 	redirectURI = os.Getenv("REDIRECT_URI")
-
-	if err != nil {
-		log.Fatal("Error loading .env file")
-	}
 
 	r := gin.Default()
 	r.GET("/", authRedirect)
